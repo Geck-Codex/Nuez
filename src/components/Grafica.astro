@@ -1,0 +1,368 @@
+---
+/**
+ * Como va el precio en la temporada. Una sola serie a la vez: la del grado
+ * activo. Las tres vienen pintadas desde el servidor y se prenden por CSS,
+ * asi que cambiar de grado no recalcula nada ni pide datos.
+ *
+ * Una serie sola no necesita leyenda: el titulo dice cual es.
+ */
+import { pesos } from '../config';
+import { datos, seriePorTipo } from '../lib/datos';
+
+const gradoInicial = datos.tipos[0]!.id;
+
+const ANCHO = 720;
+const ALTO = 260;
+const MARGEN = { arriba: 26, derecha: 8, abajo: 30, izquierda: 8 };
+
+const mesCorto = (iso: string) => {
+  const [a, m, d] = iso.split('-').map(Number);
+  return new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short' }).format(
+    new Date(a!, m! - 1, d!),
+  );
+};
+
+const series = datos.tipos.map((t) => {
+  const serie = seriePorTipo(t.id);
+  if (serie.length < 2) return { id: t.id, nombre: t.nombre, vacia: true as const };
+
+  const valores = serie.map((p) => p.valor);
+  const crudoMin = Math.min(...valores);
+  const crudoMax = Math.max(...valores);
+  const colchon = Math.max((crudoMax - crudoMin) * 0.35, 1);
+  const min = crudoMin - colchon;
+  const max = crudoMax + colchon;
+
+  const ancho = ANCHO - MARGEN.izquierda - MARGEN.derecha;
+  const alto = ALTO - MARGEN.arriba - MARGEN.abajo;
+
+  const puntos = serie.map((p, i) => ({
+    fecha: p.fecha,
+    valor: p.valor,
+    etiqueta: mesCorto(p.fecha),
+    x: MARGEN.izquierda + (ancho * i) / (serie.length - 1),
+    y: MARGEN.arriba + alto - ((p.valor - min) / (max - min)) * alto,
+  }));
+
+  const linea = puntos
+    .map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)} ${p.y.toFixed(1)}`)
+    .join(' ');
+  const base = ALTO - MARGEN.abajo;
+  const area = `${linea} L${puntos.at(-1)!.x.toFixed(1)} ${base} L${puntos[0]!.x.toFixed(1)} ${base} Z`;
+
+  return { id: t.id, nombre: t.nombre, vacia: false as const, puntos, linea, area };
+});
+---
+
+<figure class="grafica">
+  <figcaption class="grafica__pie estrecha">Precio más alto por kilo, semana por semana</figcaption>
+
+  <div class="grafica__lienzo">
+    <svg
+      viewBox={`0 0 ${ANCHO} ${ALTO}`}
+      class="grafica__svg"
+      role="img"
+      aria-label="Evolución semanal del precio por kilo"
+    >
+      <defs>
+        <linearGradient id="relleno-ambar" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#e89b2c" stop-opacity="0.32" />
+          <stop offset="100%" stop-color="#e89b2c" stop-opacity="0" />
+        </linearGradient>
+      </defs>
+
+      <line
+        class="grafica__base"
+        x1={MARGEN.izquierda}
+        x2={ANCHO - MARGEN.derecha}
+        y1={ALTO - MARGEN.abajo}
+        y2={ALTO - MARGEN.abajo}
+      />
+
+      {
+        series.map((s) =>
+          s.vacia ? null : (
+            <g
+              class="grafica__serie"
+              data-grado={s.id}
+              data-activo={s.id === gradoInicial ? 'true' : 'false'}
+              data-puntos={JSON.stringify(
+                s.puntos.map((p) => ({ x: p.x, y: p.y, fecha: p.fecha, valor: p.valor })),
+              )}
+            >
+              <path class="grafica__area" d={s.area} />
+              <path class="grafica__linea" d={s.linea} vector-effect="non-scaling-stroke" />
+              {s.puntos.map((p, i) => (
+                <circle
+                  class:list={[
+                    'grafica__punto',
+                    { 'grafica__punto--ultimo': i === s.puntos.length - 1 },
+                  ]}
+                  cx={p.x}
+                  cy={p.y}
+                  r={i === s.puntos.length - 1 ? 6 : 4}
+                />
+              ))}
+            </g>
+          ),
+        )
+      }
+
+      <g class="grafica__cruz" data-visible="false">
+        <line class="grafica__cruz-linea" y1={MARGEN.arriba - 12} y2={ALTO - MARGEN.abajo} />
+        <circle class="grafica__cruz-punto" r="6" />
+      </g>
+    </svg>
+
+    <div class="grafica__globo" data-visible="false" aria-hidden="true">
+      <span class="grafica__globo-precio cifra"></span>
+      <span class="grafica__globo-fecha estrecha"></span>
+    </div>
+
+    <div class="grafica__ejes">
+      {
+        series.map((s) =>
+          s.vacia ? null : (
+            <div
+              class="grafica__eje"
+              data-grado={s.id}
+              data-activo={s.id === gradoInicial ? 'true' : 'false'}
+            >
+              {s.puntos.map((p, i) => (
+                <span
+                  class:list={[
+                    'grafica__eje-fecha',
+                    'estrecha',
+                    { 'grafica__eje-fecha--borde': i === 0 || i === s.puntos.length - 1 },
+                  ]}
+                >
+                  {p.etiqueta}
+                </span>
+              ))}
+            </div>
+          ),
+        )
+      }
+    </div>
+  </div>
+
+  <!-- La misma serie en tabla, para quien navega con lector de pantalla.
+       El envoltorio lleva la clase: una <table> no respeta overflow y se
+       lleva la pagina de ancho en pantallas muy chicas. -->
+  <div class="solo-lectores">
+    <table>
+    <caption>Precio más alto por kilo, semana por semana</caption>
+    <thead>
+      <tr>
+        <th scope="col">Semana</th>
+        {datos.tipos.map((t) => <th scope="col">{t.nombre}</th>)}
+      </tr>
+    </thead>
+    <tbody>
+      {
+        datos.historial.map((fila) => (
+          <tr>
+            <th scope="row">{mesCorto(String(fila.fecha))}</th>
+            {datos.tipos.map((t) => (
+              <td>{typeof fila[t.id] === 'number' ? pesos(fila[t.id] as number) : 'sin dato'}</td>
+            ))}
+          </tr>
+        ))
+      }
+      </tbody>
+    </table>
+  </div>
+</figure>
+
+<script>
+  import { alCambiar, pesos, fechaCorta } from '../lib/vivo';
+
+  interface Punto {
+    x: number;
+    y: number;
+    fecha: string;
+    valor: number;
+  }
+
+  const svg = document.querySelector<SVGSVGElement>('.grafica__svg');
+  const cruz = document.querySelector<SVGGElement>('.grafica__cruz');
+  const globo = document.querySelector<HTMLElement>('.grafica__globo');
+
+  if (svg && cruz && globo) {
+    const series = Array.from(document.querySelectorAll<SVGGElement>('.grafica__serie'));
+    const ejes = Array.from(document.querySelectorAll<HTMLElement>('.grafica__eje'));
+    const linea = cruz.querySelector<SVGLineElement>('.grafica__cruz-linea')!;
+    const punto = cruz.querySelector<SVGCircleElement>('.grafica__cruz-punto')!;
+    const precio = globo.querySelector<HTMLElement>('.grafica__globo-precio')!;
+    const fecha = globo.querySelector<HTMLElement>('.grafica__globo-fecha')!;
+    const vbAncho = svg.viewBox.baseVal.width;
+    const vbAlto = svg.viewBox.baseVal.height;
+
+    let activos: Punto[] = JSON.parse(
+      series.find((s) => s.dataset.activo === 'true')?.dataset.puntos ?? '[]',
+    );
+
+    const esconder = () => {
+      cruz.dataset.visible = 'false';
+      globo.dataset.visible = 'false';
+    };
+
+    function mostrar(clienteX: number) {
+      if (activos.length === 0) return;
+      const caja = svg!.getBoundingClientRect();
+      const x = ((clienteX - caja.left) / caja.width) * vbAncho;
+
+      let cerca = activos[0]!;
+      for (const p of activos) {
+        if (Math.abs(p.x - x) < Math.abs(cerca.x - x)) cerca = p;
+      }
+
+      linea.setAttribute('x1', String(cerca.x));
+      linea.setAttribute('x2', String(cerca.x));
+      punto.setAttribute('cx', String(cerca.x));
+      punto.setAttribute('cy', String(cerca.y));
+      cruz.dataset.visible = 'true';
+
+      precio.textContent = pesos(cerca.valor);
+      fecha.textContent = fechaCorta(cerca.fecha);
+      globo.style.left = `${(cerca.x / vbAncho) * 100}%`;
+      globo.style.top = `${(cerca.y / vbAlto) * 100}%`;
+      globo.dataset.visible = 'true';
+    }
+
+    svg.addEventListener('pointermove', (e) => mostrar(e.clientX));
+    svg.addEventListener('pointerdown', (e) => mostrar(e.clientX));
+    svg.addEventListener('pointerleave', esconder);
+
+    alCambiar(({ grado }, cambio) => {
+      if (cambio !== 'grado') return;
+      esconder();
+      for (const s of series) s.dataset.activo = String(s.dataset.grado === grado);
+      for (const e of ejes) e.dataset.activo = String(e.dataset.grado === grado);
+      activos = JSON.parse(series.find((s) => s.dataset.grado === grado)?.dataset.puntos ?? '[]');
+    });
+  }
+</script>
+
+<style>
+  .grafica {
+    margin: 0;
+  }
+
+  .grafica__pie {
+    font-size: 0.76rem;
+    color: var(--hueso-2);
+  }
+
+  .grafica__lienzo {
+    position: relative;
+    margin-top: 0.5rem;
+  }
+
+  /* Escala uniforme: si se estirara solo a lo ancho, los puntos se volverian
+     elipses. El alto lo dicta el viewBox. */
+  .grafica__svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    touch-action: pan-y;
+    cursor: crosshair;
+  }
+
+  .grafica__base {
+    stroke: var(--linea);
+    stroke-width: 1;
+  }
+
+  .grafica__serie[data-activo='false'] {
+    display: none;
+  }
+
+  .grafica__area {
+    fill: url(#relleno-ambar);
+  }
+
+  .grafica__linea {
+    fill: none;
+    stroke: var(--ambar);
+    stroke-width: 2;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+  }
+
+  .grafica__punto {
+    fill: var(--noche);
+    stroke: var(--ambar);
+    stroke-width: 2;
+  }
+
+  .grafica__punto--ultimo {
+    fill: var(--ambar);
+  }
+
+  .grafica__cruz[data-visible='false'],
+  .grafica__globo[data-visible='false'] {
+    opacity: 0;
+  }
+
+  .grafica__cruz-linea {
+    stroke: var(--linea-fuerte);
+    stroke-width: 1;
+    stroke-dasharray: 3 4;
+  }
+
+  .grafica__cruz-punto {
+    fill: var(--ambar);
+    stroke: var(--noche);
+    stroke-width: 2;
+  }
+
+  .grafica__globo {
+    position: absolute;
+    transform: translate(-50%, calc(-100% - 0.7rem));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: var(--panel-alto);
+    border: 1px solid var(--linea-fuerte);
+    border-radius: var(--radio-chico);
+    padding: 0.3rem 0.6rem;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  .grafica__globo-precio {
+    font-weight: 700;
+    font-size: 0.95rem;
+    line-height: 1.15;
+  }
+
+  .grafica__globo-fecha {
+    font-size: 0.7rem;
+    color: var(--hueso-2);
+  }
+
+  .grafica__eje {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .grafica__eje[data-activo='false'] {
+    display: none;
+  }
+
+  .grafica__eje-fecha {
+    font-size: 0.7rem;
+    color: color-mix(in srgb, var(--hueso-2) 75%, transparent);
+  }
+
+  /* En celular la grafica es chica: solo las fechas de los extremos y el
+     ultimo punto, que es el que importa. */
+  @media (max-width: 40rem) {
+    .grafica__eje-fecha:not(.grafica__eje-fecha--borde),
+    .grafica__punto:not(.grafica__punto--ultimo) {
+      display: none;
+    }
+  }
+</style>

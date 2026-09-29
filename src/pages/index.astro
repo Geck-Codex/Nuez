@@ -1,0 +1,116 @@
+---
+import Base from '../layouts/Base.astro';
+import Encabezado from '../components/Encabezado.astro';
+import Terminal from '../components/Terminal.astro';
+import Libro from '../components/Libro.astro';
+import Mapa from '../components/Mapa.astro';
+import Tabla from '../components/Tabla.astro';
+import Cierre from '../components/Cierre.astro';
+import { SITIO } from '../config';
+import { cargaCliente, datos, mejorPorTipo, ultimaVisita } from '../lib/datos';
+
+const titulo = `Precio de la nuez hoy en ${SITIO.localidadCompleta}`;
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'WebSite',
+      name: SITIO.nombre,
+      url: Astro.site?.href,
+      inLanguage: 'es-MX',
+      description: SITIO.descripcion,
+    },
+    {
+      '@type': 'Dataset',
+      name: `Precios de compra de nuez en ${SITIO.localidadCompleta}`,
+      description: SITIO.descripcion,
+      license: 'https://creativecommons.org/licenses/by/4.0/',
+      isAccessibleForFree: true,
+      dateModified: ultimaVisita(),
+      spatialCoverage: {
+        '@type': 'Place',
+        name: SITIO.localidadCompleta,
+        geo: {
+          '@type': 'GeoCoordinates',
+          latitude: SITIO.mapa.lat,
+          longitude: SITIO.mapa.lon,
+        },
+      },
+      variableMeasured: datos.tipos.map((t) => ({
+        '@type': 'PropertyValue',
+        name: `Precio por kilo de nuez ${t.nombre.toLowerCase()}`,
+        unitText: 'MXN/kg',
+        value: mejorPorTipo(t.id)?.precio ?? undefined,
+      })),
+    },
+  ],
+};
+---
+
+<Base titulo={titulo}>
+  <script
+    slot="head"
+    type="application/ld+json"
+    is:inline
+    set:html={JSON.stringify(jsonLd)}
+  />
+
+  <!-- Los datos viajan una sola vez: la cinta, la grafica, la cuenta, el libro,
+       el mapa y la tabla leen todos de aqui. -->
+  <script
+    type="application/json"
+    id="datos-sitio"
+    is:inline
+    set:html={JSON.stringify(cargaCliente())}
+  />
+
+  <Encabezado />
+
+  {
+    datos.datosDeEjemplo && (
+      <div class="aviso-ejemplo">
+        <div class="envoltura aviso-ejemplo__interior">
+          <strong>Estos precios son de ejemplo.</strong> Cambia{' '}
+          <code>src/data/precios.json</code> por los que levantes en campo y pon{' '}
+          <code>"datosDeEjemplo": false</code> para que desaparezca este aviso.
+        </div>
+      </div>
+    )
+  }
+
+  <main>
+    <Terminal />
+    <Mapa />
+    <Libro />
+    <Tabla />
+    <Cierre />
+  </main>
+</Base>
+
+<style>
+  .aviso-ejemplo {
+    background: var(--ambar-lavado);
+    border-bottom: 1px solid color-mix(in srgb, var(--ambar) 40%, transparent);
+    color: var(--hueso);
+  }
+
+  .aviso-ejemplo__interior {
+    padding-block: 0.65rem;
+    font-size: 0.86rem;
+    line-height: 1.5;
+    max-width: var(--ancho);
+  }
+
+  .aviso-ejemplo strong {
+    color: var(--ambar);
+    font-weight: 600;
+  }
+
+  .aviso-ejemplo code {
+    font-size: 0.9em;
+    background: var(--panel-alto);
+    border-radius: 4px;
+    padding: 0.1em 0.35em;
+  }
+</style>

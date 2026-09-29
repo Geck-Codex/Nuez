@@ -1,0 +1,558 @@
+---
+/**
+ * La cabecera del sitio: el precio del dia, como viene la temporada y la
+ * cuenta de lo que te darian. A la izquierda el mercado, a la derecha tu venta.
+ *
+ * Todo lo que cambia con el grado o los kilos esta marcado con data-vivo.
+ */
+import { SITIO, pesos, fechaLarga, haceCuanto } from '../config';
+import Grafica from './Grafica.astro';
+import {
+  datos,
+  mejorPorTipo,
+  rangoPorTipo,
+  tendencia,
+  ultimaVisita,
+  ordenadosPorTipo,
+} from '../lib/datos';
+
+const grado = datos.tipos[0]!;
+const mejor = mejorPorTipo(grado.id);
+const cambio = tendencia(grado.id);
+const visita = ultimaVisita();
+const cuantos = ordenadosPorTipo(grado.id).length;
+const rango = rangoPorTipo(grado.id);
+const KILOS = 100;
+const atajos = [50, 100, 500, 1000];
+---
+
+<section class="terminal" id="arriba">
+  <div class="envoltura terminal__reja">
+    <div class="panel mercado">
+      <h1 class="mercado__titulo">
+        Precio de la nuez hoy en {SITIO.localidadCompleta}
+      </h1>
+
+      {
+        mejor ? (
+          <>
+            <p class="mercado__lo-mas estrecha">
+              Lo más alto que pagan por nuez{' '}
+              <span data-vivo="grado-minuscula">{grado.nombre.toLowerCase()}</span>
+            </p>
+
+            <p class="mercado__precio">
+              <span class="mercado__moneda cifra">$</span>
+              <span class="mercado__numero cifra cifra--ancha" data-vivo="precio">{mejor.precio}</span>
+              <span class="mercado__unidad estrecha">por kilo</span>
+            </p>
+
+            {cambio && (
+              <p
+                class:list={[
+                  'delta',
+                  'mercado__delta',
+                  cambio.diferencia > 0
+                    ? 'delta--sube'
+                    : cambio.diferencia < 0
+                      ? 'delta--baja'
+                      : 'delta--plano',
+                ]}
+                data-vivo="delta"
+              >
+                <span class="delta__flecha" data-vivo="delta-flecha" aria-hidden="true">
+                  {cambio.diferencia > 0 ? '↑' : cambio.diferencia < 0 ? '↓' : '='}
+                </span>
+                <span data-vivo="delta-texto">
+                  {cambio.diferencia === 0
+                    ? 'igual que'
+                    : `${cambio.diferencia > 0 ? '+' : '−'}${pesos(Math.abs(cambio.diferencia))} (${
+                        cambio.diferencia > 0 ? '+' : '−'
+                      }${Math.abs(cambio.porcentaje).toFixed(1)}%)`}
+                </span>
+                <span class="mercado__desde">
+                  desde el {fechaLarga(cambio.desde)}
+                </span>
+              </p>
+            )}
+
+            <p class="mercado__quien">
+              Lo paga <strong data-vivo="mejor-nombre">{mejor.recolector.nombre}</strong>,{' '}
+              <span data-vivo="mejor-donde">{mejor.recolector.direccion}</span>.
+            </p>
+
+            <Grafica />
+          </>
+        ) : (
+          <p class="mercado__vacio">
+            Todavía no hay precios de esta temporada. En cuanto demos la primera vuelta por{' '}
+            {SITIO.localidad} aparecen aquí.
+          </p>
+        )
+      }
+    </div>
+
+    <div class="terminal__derecha">
+      <form class="panel cuenta" id="calculadora" novalidate>
+      <h2 class="cuenta__titulo">¿Cuánto te darían?</h2>
+
+      <label class="cuenta__etiqueta estrecha" for="kilos">Kilos que vas a vender</label>
+      <div class="cuenta__caja">
+        <input
+          class="cuenta__entrada cifra"
+          id="kilos"
+          name="kilos"
+          type="number"
+          inputmode="decimal"
+          min="0"
+          step="1"
+          value={KILOS}
+          autocomplete="off"
+        />
+        <span class="cuenta__kg estrecha">kg</span>
+      </div>
+
+      <div class="cuenta__atajos">
+        {
+          atajos.map((k) => (
+            <button
+              type="button"
+              class:list={['cuenta__atajo', 'estrecha', { 'cuenta__atajo--activo': k === KILOS }]}
+              data-kilos={k}
+            >
+              {k} kg
+            </button>
+          ))
+        }
+      </div>
+
+      <output class="cuenta__salida" for="kilos">
+        <span class="cuenta__salida-etiqueta estrecha">Te darían hasta</span>
+        <span class="cuenta__total cifra cifra--ancha" data-vivo="total">
+          {mejor ? pesos(mejor.precio * KILOS) : '—'}
+        </span>
+        <span class="cuenta__detalle" data-vivo="total-detalle">
+          {
+            mejor
+              ? `por ${KILOS} kg de nuez ${grado.nombre.toLowerCase()}, a ${pesos(mejor.precio)} el kilo`
+              : 'en cuanto haya precios capturados'
+          }
+        </span>
+      </output>
+
+      <a class="boton cuenta__ir" href="#libro">Ver lo que te da cada quien</a>
+
+      <p class="cuenta__nota">
+        Es una cuenta de referencia. Cada comprador ajusta por humedad, tamaño y volumen.
+      </p>
+      </form>
+
+      <aside class="panel resumen">
+        <dl class="resumen__lista">
+          <div class="resumen__dato">
+            <dt class="estrecha">Rango de hoy</dt>
+            <dd class="cifra" data-vivo="rango">
+              {rango ? `${pesos(rango.min)} a ${pesos(rango.max)}` : 'sin precios'}
+            </dd>
+          </div>
+          <div class="resumen__dato">
+            <dt class="estrecha">Lugares preguntados</dt>
+            <dd class="cifra" data-vivo="cuantos">{cuantos}</dd>
+          </div>
+          <div class="resumen__dato">
+            <dt class="estrecha">Última vuelta</dt>
+            <dd>{fechaLarga(visita)}, {haceCuanto(visita)}</dd>
+          </div>
+        </dl>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<script>
+  import { alCambiar, carga, estado, fijarKilos, ordenados, pesos } from '../lib/vivo';
+
+  const forma = document.querySelector<HTMLFormElement>('.cuenta');
+  const entrada = document.getElementById('kilos') as HTMLInputElement | null;
+
+  if (carga && forma && entrada) {
+    const atajos = Array.from(forma.querySelectorAll<HTMLButtonElement>('.cuenta__atajo'));
+    const ver = <T extends HTMLElement>(nombre: string) =>
+      document.querySelector<T>(`[data-vivo="${nombre}"]`);
+
+    const leerKilos = () => {
+      const bruto = Number(entrada.value);
+      return Number.isFinite(bruto) && bruto > 0 ? bruto : 0;
+    };
+
+    const nombreDe = (grado: string) =>
+      carga.tipos.find((t) => t.id === grado)?.nombre ?? 'nuez';
+
+    /** Cuanto cambio el precio de un grado entre la primera y la ultima semana. */
+    function cambioDe(grado: string) {
+      const serie = carga.historial
+        .map((f) => f[grado])
+        .filter((v): v is number => typeof v === 'number');
+      if (serie.length < 2) return null;
+      const primero = serie[0]!;
+      const diferencia = serie[serie.length - 1]! - primero;
+      return { diferencia, porcentaje: primero === 0 ? 0 : (diferencia / primero) * 100 };
+    }
+
+    function pintarMercado(grado: string) {
+      const lista = ordenados(grado);
+      const mejor = lista[0];
+      const minuscula = nombreDe(grado).toLowerCase();
+
+      const rotulo = ver('grado-minuscula');
+      if (rotulo) rotulo.textContent = minuscula;
+      const cuantos = ver('cuantos');
+      if (cuantos) cuantos.textContent = String(lista.length);
+
+      const rango = ver('rango');
+      if (rango) {
+        const valores = lista.map((f) => f.precio);
+        rango.textContent = valores.length
+          ? `${pesos(Math.min(...valores))} a ${pesos(Math.max(...valores))}`
+          : 'sin precios';
+      }
+
+      const numero = ver('precio');
+      if (numero) numero.textContent = mejor ? String(mejor.precio) : '—';
+
+      const nombre = ver('mejor-nombre');
+      const donde = ver('mejor-donde');
+      if (nombre && donde) {
+        nombre.textContent = mejor?.recolector.nombre ?? 'nadie por ahora';
+        donde.textContent = mejor?.recolector.direccion ?? 'sin precio capturado';
+      }
+
+      const delta = ver('delta');
+      const flecha = ver('delta-flecha');
+      const texto = ver('delta-texto');
+      const cambio = cambioDe(grado);
+      if (delta && flecha && texto) {
+        delta.hidden = cambio === null;
+        if (cambio) {
+          const sube = cambio.diferencia > 0;
+          const baja = cambio.diferencia < 0;
+          delta.classList.toggle('delta--sube', sube);
+          delta.classList.toggle('delta--baja', baja);
+          delta.classList.toggle('delta--plano', !sube && !baja);
+          flecha.textContent = sube ? '↑' : baja ? '↓' : '=';
+          texto.textContent =
+            cambio.diferencia === 0
+              ? 'igual que'
+              : `${sube ? '+' : '−'}${pesos(Math.abs(cambio.diferencia))} (${sube ? '+' : '−'}${Math.abs(
+                  cambio.porcentaje,
+                ).toFixed(1)}%)`;
+        }
+      }
+    }
+
+    function pintarCuenta(grado: string, kilos: number) {
+      const mejor = ordenados(grado)[0];
+      const total = ver('total');
+      const detalle = ver('total-detalle');
+      if (!total || !detalle) return;
+      const minuscula = nombreDe(grado).toLowerCase();
+
+      if (!mejor) {
+        total.textContent = '—';
+        detalle.textContent = `nadie tiene precio de ${minuscula} capturado`;
+        return;
+      }
+      if (kilos === 0) {
+        total.textContent = '—';
+        detalle.textContent = 'escribe cuántos kilos traes';
+        return;
+      }
+
+      total.textContent = pesos(mejor.precio * kilos);
+      detalle.textContent = `por ${kilos} kg de nuez ${minuscula}, a ${pesos(mejor.precio)} el kilo`;
+    }
+
+    function marcarAtajos(kilos: number) {
+      for (const a of atajos) {
+        a.classList.toggle('cuenta__atajo--activo', Number(a.dataset.kilos) === kilos);
+      }
+    }
+
+    entrada.addEventListener('input', () => fijarKilos(leerKilos()));
+    forma.addEventListener('submit', (e) => e.preventDefault());
+
+    for (const a of atajos) {
+      a.addEventListener('click', () => {
+        entrada.value = a.dataset.kilos!;
+        fijarKilos(Number(a.dataset.kilos));
+      });
+    }
+
+    alCambiar(({ grado, kilos }, cambio) => {
+      if (cambio === 'grado') pintarMercado(grado);
+      marcarAtajos(kilos);
+      pintarCuenta(grado, kilos);
+    });
+
+    marcarAtajos(estado().kilos);
+  }
+</script>
+
+<style>
+  .terminal {
+    padding-block: clamp(1.25rem, 3vw, 2.25rem) 0;
+  }
+
+  .terminal__reja {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  @media (max-width: 58rem) {
+    .terminal__reja {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  /* --- Mercado ---------------------------------------------------- */
+  .mercado {
+    padding: clamp(1.1rem, 3vw, 1.9rem);
+  }
+
+  .mercado__titulo {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--hueso-2);
+    letter-spacing: 0;
+  }
+
+  .mercado__lo-mas {
+    margin: 1.4rem 0 0;
+    font-size: 0.82rem;
+    color: var(--hueso-2);
+  }
+
+  .mercado__precio {
+    display: flex;
+    align-items: baseline;
+    gap: 0.1rem;
+    margin: 0.15rem 0 0;
+    max-width: none;
+  }
+
+  .mercado__moneda {
+    font-size: clamp(1.6rem, 1rem + 3vw, 2.5rem);
+    font-weight: 600;
+    color: var(--hueso-2);
+    line-height: 1;
+  }
+
+  .mercado__numero {
+    font-size: clamp(4rem, 2.5rem + 11vw, 8.5rem);
+    line-height: 0.86;
+  }
+
+  .mercado__unidad {
+    margin-left: 0.7rem;
+    font-size: 0.9rem;
+    color: var(--hueso-2);
+  }
+
+  .mercado__delta {
+    margin: 0.6rem 0 0;
+    font-size: 1.02rem;
+    flex-wrap: wrap;
+  }
+
+  .mercado__desde {
+    color: var(--hueso-2);
+    font-family: var(--prosa);
+    font-weight: 400;
+    font-size: 0.92rem;
+  }
+
+  .mercado__quien {
+    margin: 0.85rem 0 1.6rem;
+    max-width: 44ch;
+  }
+
+  .mercado__quien strong {
+    font-weight: 600;
+  }
+
+  .mercado__vacio {
+    margin-top: 1.2rem;
+  }
+
+  /* --- Cuenta ----------------------------------------------------- */
+  .terminal__derecha {
+    display: grid;
+    /* minmax(0,...) y no 'auto': si no, la columna crece con el contenido
+       mas ancho y se lleva la pagina de corbata en celular. */
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+    position: sticky;
+    top: 4.6rem;
+  }
+
+  @media (max-width: 58rem) {
+    .terminal__derecha {
+      position: static;
+    }
+  }
+
+  .cuenta {
+    padding: clamp(1.1rem, 3vw, 1.6rem);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .resumen {
+    padding: 0.4rem 1.3rem;
+  }
+
+  .resumen__lista {
+    margin: 0;
+  }
+
+  .resumen__dato {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.3rem 1rem;
+    padding-block: 0.75rem;
+    border-bottom: 1px solid var(--linea);
+  }
+
+  .resumen__dato:last-child {
+    border-bottom: 0;
+  }
+
+  .resumen__dato dt {
+    font-size: 0.78rem;
+    color: var(--hueso-2);
+  }
+
+  .resumen__dato dd {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+    text-align: right;
+  }
+
+  .cuenta__titulo {
+    font-size: 1.15rem;
+  }
+
+  .cuenta__etiqueta {
+    display: block;
+    margin: 1.1rem 0 0.4rem;
+    font-size: 0.78rem;
+    color: var(--hueso-2);
+  }
+
+  .cuenta__caja {
+    display: flex;
+    align-items: stretch;
+    background: var(--noche);
+    border: 1px solid var(--linea-fuerte);
+    border-radius: var(--radio-chico);
+    overflow: hidden;
+  }
+
+  .cuenta__caja:focus-within {
+    border-color: var(--ambar);
+  }
+
+  .cuenta__entrada {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    background: transparent;
+    color: var(--hueso);
+    font-size: 1.85rem;
+    font-weight: 700;
+    padding: 0.5rem 0.7rem;
+  }
+  .cuenta__entrada:focus {
+    outline: none;
+  }
+
+  .cuenta__kg {
+    display: flex;
+    align-items: center;
+    padding-inline: 0.85rem;
+    background: var(--panel-alto);
+    color: var(--hueso-2);
+    font-size: 0.9rem;
+  }
+
+  .cuenta__atajos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: 0.55rem;
+  }
+
+  .cuenta__atajo {
+    background: transparent;
+    border: 1px solid var(--linea);
+    border-radius: 999px;
+    color: var(--hueso-2);
+    font-size: 0.78rem;
+    padding: 0.28rem 0.7rem;
+    cursor: pointer;
+  }
+  .cuenta__atajo:hover {
+    border-color: var(--linea-fuerte);
+    color: var(--hueso);
+  }
+  .cuenta__atajo--activo {
+    background: var(--ambar-lavado);
+    border-color: var(--ambar);
+    color: var(--ambar);
+  }
+
+  .cuenta__salida {
+    display: block;
+    margin-top: 1.4rem;
+    padding-top: 1.2rem;
+    border-top: 1px solid var(--linea);
+  }
+
+  .cuenta__salida-etiqueta {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--hueso-2);
+  }
+
+  .cuenta__total {
+    display: block;
+    font-size: clamp(2.3rem, 1.4rem + 4vw, 3.1rem);
+    line-height: 1;
+    margin-top: 0.2rem;
+    color: var(--ambar);
+  }
+
+  .cuenta__detalle {
+    display: block;
+    margin-top: 0.45rem;
+    font-size: 0.92rem;
+    color: var(--hueso-2);
+    line-height: 1.5;
+  }
+
+  .cuenta__ir {
+    margin-top: 1.3rem;
+  }
+
+  .cuenta__nota {
+    margin: 0.9rem 0 0;
+    font-size: 0.82rem;
+    color: var(--hueso-2);
+    line-height: 1.5;
+  }
+</style>

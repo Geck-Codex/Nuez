@@ -1,0 +1,305 @@
+---
+/**
+ * Donde compran. Cada marca trae el precio del grado activo, asi que al
+ * cambiar de grado arriba el mapa se reetiqueta solo.
+ */
+import { SITIO } from '../config';
+import { datos } from '../lib/datos';
+
+const grado = datos.tipos[0]!;
+---
+
+<section class="seccion mapa" id="mapa" aria-labelledby="mapa-titulo">
+  <div class="envoltura">
+    <h2 class="seccion__titulo" id="mapa-titulo">Dónde compran en {SITIO.localidad}</h2>
+    <p class="seccion__entrada">
+      Cada marca lleva el precio de la nuez{' '}
+      <span data-vivo="mapa-grado">{grado.nombre.toLowerCase()}</span> en ese lugar. Tócala
+      para ver el horario, los demás precios y cómo llegar.
+    </p>
+  </div>
+
+  <div class="envoltura mapa__envoltura">
+    <div class="panel mapa__marco">
+      <div
+        class="mapa__lienzo"
+        id="mapa-lienzo"
+        role="application"
+        aria-label="Mapa de compradores de nuez"
+        data-centro={JSON.stringify(SITIO.mapa)}
+      >
+      </div>
+    </div>
+    <noscript>
+      <p class="mapa__sin-js">
+        El mapa necesita JavaScript. Las direcciones de cada comprador vienen en la lista de
+        arriba y en la tabla de abajo.
+      </p>
+    </noscript>
+    <p class="mapa__pie estrecha">
+      Toca el mapa una vez para hacer zoom con la rueda. Si una marca está fuera de lugar,
+      avísanos y se corrige.
+    </p>
+  </div>
+</section>
+
+<script>
+  import L from 'leaflet';
+  import 'leaflet/dist/leaflet.css';
+  import { alCambiar, carga, escapar, pesos } from '../lib/vivo';
+
+  const lienzo = document.getElementById('mapa-lienzo');
+
+  if (carga && lienzo) {
+    const centro = JSON.parse(lienzo.dataset.centro ?? 'null') as {
+      lat: number;
+      lon: number;
+      zoom: number;
+    } | null;
+
+    const mapa = L.map(lienzo, {
+      center: [centro?.lat ?? 26.7447, centro?.lon ?? -105.1719],
+      zoom: centro?.zoom ?? 13,
+      scrollWheelZoom: false,
+    });
+
+    // Teselas de OpenStreetMap: sin llave y sin tarjeta. Se oscurecen con un
+    // filtro CSS (ver .leaflet-tile-pane) en vez de contratar un tema oscuro.
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; colaboradores de OpenStreetMap',
+    }).addTo(mapa);
+
+    const marcas = carga.recolectores.map((r) => {
+      const icono = L.divIcon({
+        className: '',
+        html: '<span class="marcador"></span>',
+        iconSize: [0, 0],
+        iconAnchor: [0, 0],
+      });
+      const marca = L.marker([r.lat, r.lon], { icon: icono, title: r.nombre }).addTo(mapa);
+      marca.bindPopup('', { maxWidth: 300 });
+      return { r, marca };
+    });
+
+    const puntos = carga.recolectores.map((r) => [r.lat, r.lon] as L.LatLngExpression);
+    if (puntos.length > 1) mapa.fitBounds(L.latLngBounds(puntos).pad(0.3));
+
+    function globo(r: (typeof carga.recolectores)[number], grado: string) {
+      const precios = carga!.tipos
+        .map((t) => {
+          const p = r.precios[t.id];
+          const activo = t.id === grado ? ' globo__linea--activa' : '';
+          return `<tr class="globo__linea${activo}"><th>${escapar(t.nombre)}</th><td>${
+            typeof p === 'number' ? pesos(p) + ' / kg' : 'no compran'
+          }</td></tr>`;
+        })
+        .join('');
+      const ruta = `https://www.google.com/maps/dir/?api=1&destination=${r.lat},${r.lon}`;
+      return `
+        <div class="globo">
+          <h3 class="globo__nombre">${escapar(r.nombre)}</h3>
+          <p class="globo__donde">${escapar(r.direccion)}</p>
+          <table class="globo__precios"><tbody>${precios}</tbody></table>
+          ${r.horario ? `<p class="globo__dato">${escapar(r.horario)}</p>` : ''}
+          ${r.notas ? `<p class="globo__dato">${escapar(r.notas)}</p>` : ''}
+          <a class="globo__ruta" href="${ruta}" target="_blank" rel="noopener">Cómo llegar</a>
+        </div>`;
+    }
+
+    function pintar(grado: string) {
+      const valores = carga!.recolectores
+        .map((r) => r.precios[grado])
+        .filter((p): p is number => typeof p === 'number');
+      const tope = valores.length ? Math.max(...valores) : null;
+
+      for (const { r, marca } of marcas) {
+        const precio = r.precios[grado];
+        const el = marca.getElement()?.querySelector<HTMLElement>('.marcador');
+        if (el) {
+          el.textContent = typeof precio === 'number' ? pesos(precio) : 'sin dato';
+          el.classList.toggle('marcador--mejor', typeof precio === 'number' && precio === tope);
+          el.classList.toggle('marcador--nada', typeof precio !== 'number');
+        }
+        marca.setPopupContent(globo(r, grado));
+      }
+
+      const rotulo = document.querySelector<HTMLElement>('[data-vivo="mapa-grado"]');
+      if (rotulo) {
+        rotulo.textContent = (
+          carga!.tipos.find((t) => t.id === grado)?.nombre ?? 'nuez'
+        ).toLowerCase();
+      }
+    }
+
+    pintar(carga.tipos[0]!.id);
+    alCambiar(({ grado }, cambio) => {
+      if (cambio === 'grado') pintar(grado);
+    });
+
+    // El scroll de la pagina no debe quedarse atrapado en el mapa.
+    mapa.on('click', () => mapa.scrollWheelZoom.enable());
+    mapa.on('mouseout', () => mapa.scrollWheelZoom.disable());
+  }
+</script>
+
+<style>
+  .mapa__envoltura {
+    margin-top: 1.8rem;
+  }
+
+  .mapa__marco {
+    padding: 0.5rem;
+    overflow: hidden;
+  }
+
+  .mapa__lienzo {
+    height: clamp(20rem, 55vh, 32rem);
+    width: 100%;
+    border-radius: calc(var(--radio) - 5px);
+    background: var(--panel-alto);
+  }
+
+  .mapa__sin-js {
+    padding-top: 1rem;
+    color: var(--hueso-2);
+  }
+
+  .mapa__pie {
+    margin-top: 0.8rem;
+    font-size: 0.76rem;
+    color: var(--hueso-2);
+    max-width: 52ch;
+  }
+</style>
+
+<style is:global>
+  /* Marcas y globos los crea Leaflet en tiempo de ejecucion: van globales. */
+  .marcador {
+    display: inline-block;
+    transform: translate(-50%, -150%);
+    white-space: nowrap;
+    font-family: var(--maquina);
+    font-weight: 700;
+    font-size: 0.9rem;
+    line-height: 1;
+    padding: 0.35rem 0.55rem;
+    border-radius: 999px;
+    background: var(--panel-alto);
+    color: var(--hueso);
+    border: 1px solid var(--linea-fuerte);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
+  }
+
+  .marcador--mejor {
+    background: var(--ambar);
+    color: #17120a;
+    border-color: var(--ambar);
+    font-size: 1rem;
+  }
+
+  .marcador--nada {
+    color: var(--hueso-2);
+    font-size: 0.78rem;
+  }
+
+  .leaflet-container {
+    font-family: var(--prosa);
+    background: var(--panel-alto);
+  }
+
+  /* El mapa de OSM viene claro: se invierte y se baja el color para que sea
+     fondo y no protagonista. Solo las teselas, no las marcas ni los globos. */
+  .leaflet-tile-pane {
+    filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.86) saturate(0.5);
+  }
+
+  .leaflet-container a {
+    color: var(--hueso);
+  }
+
+  .leaflet-control-attribution {
+    background: rgba(12, 19, 15, 0.82) !important;
+    color: var(--hueso-2);
+    font-size: 0.66rem;
+  }
+
+  .leaflet-bar,
+  .leaflet-bar a {
+    background: var(--panel-alto);
+    color: var(--hueso);
+    border-color: var(--linea-fuerte);
+  }
+  .leaflet-bar a:hover {
+    background: var(--panel);
+    color: var(--hueso);
+  }
+
+  .leaflet-popup-content-wrapper {
+    border-radius: var(--radio-chico);
+    border: 1px solid var(--linea-fuerte);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
+    background: var(--panel);
+    color: var(--hueso);
+  }
+  .leaflet-popup-tip {
+    background: var(--panel);
+    box-shadow: none;
+  }
+  .leaflet-popup-content {
+    margin: 0.85rem 1rem;
+    line-height: 1.5;
+  }
+  .leaflet-popup-close-button {
+    color: var(--hueso-2) !important;
+  }
+
+  .globo__nombre {
+    font-family: var(--maquina);
+    font-weight: 700;
+    font-size: 1.05rem;
+    margin: 0;
+  }
+  .globo__donde {
+    margin: 0.2rem 0 0.7rem;
+    font-size: 0.86rem;
+    color: var(--hueso-2);
+  }
+  .globo__precios {
+    width: 100%;
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+  }
+  .globo__precios th,
+  .globo__precios td {
+    text-align: left;
+    padding: 0.3rem 0;
+    border-bottom: 1px solid var(--linea);
+    font-size: 0.88rem;
+    color: var(--hueso-2);
+  }
+  .globo__precios th {
+    font-family: var(--maquina);
+    font-weight: 600;
+  }
+  .globo__precios td {
+    text-align: right;
+  }
+  .globo__linea--activa th,
+  .globo__linea--activa td {
+    color: var(--ambar);
+  }
+  .globo__dato {
+    margin: 0.5rem 0 0;
+    font-size: 0.84rem;
+    color: var(--hueso-2);
+  }
+  .globo__ruta {
+    display: inline-block;
+    margin-top: 0.8rem;
+    font-family: var(--maquina);
+    font-weight: 700;
+    font-size: 0.88rem;
+    color: var(--ambar);
+  }
+</style>

@@ -1,0 +1,174 @@
+---
+/**
+ * La matriz completa: todos los compradores contra todos los grados.
+ * La columna del grado activo se resalta para no perder el hilo.
+ */
+import { pesos, fechaLarga } from '../config';
+import { datos, mejorPorTipo } from '../lib/datos';
+
+const gradoInicial = datos.tipos[0]!.id;
+const topes = new Map(datos.tipos.map((t) => [t.id, mejorPorTipo(t.id)?.precio ?? null]));
+---
+
+<section class="seccion tabla" id="tabla" aria-labelledby="tabla-titulo">
+  <div class="envoltura">
+    <h2 class="seccion__titulo" id="tabla-titulo">Todos los precios, uno junto a otro</h2>
+    <p class="seccion__entrada">
+      Pesos por kilo. En ámbar va el más alto de cada grado. La fecha es el día en que se
+      preguntó en persona.
+    </p>
+
+    <div class="panel tabla__marco">
+      <table class="tabla__cuadro">
+        <caption class="solo-lectores">
+          Precios de compra de nuez por comprador y grado, en pesos por kilo
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Quién compra</th>
+            {
+              datos.tipos.map((t) => (
+                <th
+                  scope="col"
+                  class="tabla__num"
+                  data-columna={t.id}
+                  data-activo={t.id === gradoInicial ? 'true' : 'false'}
+                >
+                  {t.nombre}
+                </th>
+              ))
+            }
+            <th scope="col" class="tabla__fecha-th">Preguntado</th>
+          </tr>
+        </thead>
+        <tbody>
+          {
+            datos.recolectores.map((r) => (
+              <tr>
+                <th scope="row">
+                  <span class="tabla__nombre">{r.nombre}</span>
+                  <span class="tabla__donde">{r.direccion}</span>
+                </th>
+                {datos.tipos.map((t) => {
+                  const p = r.precios[t.id];
+                  const esTope = typeof p === 'number' && p === topes.get(t.id);
+                  return (
+                    <td
+                      class:list={['tabla__num', 'cifra', { 'tabla__num--tope': esTope }]}
+                      data-columna={t.id}
+                      data-activo={t.id === gradoInicial ? 'true' : 'false'}
+                    >
+                      {typeof p === 'number' ? (
+                        pesos(p)
+                      ) : (
+                        <span class="tabla__nada">no compran</span>
+                      )}
+                    </td>
+                  );
+                })}
+                <td class="tabla__fecha">{fechaLarga(r.fecha)}</td>
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<script>
+  import { alCambiar } from '../lib/vivo';
+
+  const celdas = Array.from(document.querySelectorAll<HTMLElement>('[data-columna]'));
+
+  if (celdas.length > 0) {
+    alCambiar(({ grado }, cambio) => {
+      if (cambio !== 'grado') return;
+      for (const c of celdas) c.dataset.activo = String(c.dataset.columna === grado);
+    });
+  }
+</script>
+
+<style>
+  .tabla__marco {
+    margin-top: 1.8rem;
+    overflow-x: auto;
+  }
+
+  .tabla__cuadro {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 40rem;
+  }
+
+  .tabla__cuadro th,
+  .tabla__cuadro td {
+    text-align: left;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--linea);
+    vertical-align: top;
+  }
+
+  .tabla__cuadro tbody tr:last-child th,
+  .tabla__cuadro tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
+  .tabla__cuadro thead th {
+    font-size: 0.78rem;
+    font-weight: 600;
+    font-family: var(--maquina);
+    font-stretch: 84%;
+    color: var(--hueso-2);
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+  }
+
+  .tabla__cuadro tbody th {
+    font-weight: 400;
+  }
+
+  .tabla__nombre {
+    display: block;
+    font-family: var(--maquina);
+    font-weight: 700;
+    font-size: 1rem;
+    line-height: 1.25;
+  }
+
+  .tabla__donde {
+    display: block;
+    font-size: 0.82rem;
+    color: var(--hueso-2);
+    margin-top: 0.15rem;
+  }
+
+  .tabla__num {
+    text-align: right;
+    font-size: 1.02rem;
+    white-space: nowrap;
+  }
+
+  .tabla__num--tope {
+    color: var(--ambar);
+    font-weight: 700;
+  }
+
+  /* La columna del grado activo se levanta del resto. */
+  [data-columna][data-activo='true'] {
+    background: var(--panel-alto);
+  }
+
+  .tabla__nada {
+    font-family: var(--prosa);
+    font-size: 0.84rem;
+    color: var(--hueso-2);
+  }
+
+  .tabla__fecha,
+  .tabla__fecha-th {
+    font-size: 0.82rem;
+    color: var(--hueso-2);
+    white-space: nowrap;
+  }
+</style>

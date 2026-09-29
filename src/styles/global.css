@@ -1,0 +1,239 @@
+/* ---------------------------------------------------------------
+   Precio de la Nuez - Villa Coronado, Chihuahua
+
+   Concepto: terminal de precios. El pizarron de la bodega convertido
+   en tablero de mercado: numeros de maquina, prosa de persona.
+   Un solo tema, oscuro, para que la cifra pese de noche y de dia.
+   --------------------------------------------------------------- */
+
+:root {
+  /* Superficies: huerta de noche */
+  --noche: #0c130f;
+  --panel: #131e17;
+  --panel-alto: #1a291f;
+  --linea: rgba(217, 230, 209, 0.13);
+  --linea-fuerte: rgba(217, 230, 209, 0.3);
+
+  /* Tinta */
+  --hueso: #efeadc;
+  --hueso-2: #96a896;
+
+  /* Acento: la nuez madura. Marca quien paga mas y las acciones. */
+  --ambar: #e89b2c;
+  --ambar-lavado: rgba(232, 155, 44, 0.14);
+
+  /* Estado. Nunca solos: siempre con flecha y signo. */
+  --sube: #3eb97b;
+  --baja: #e4644a;
+
+  /* Tipografia */
+  --maquina: 'Archivo', 'Arial Narrow', system-ui, sans-serif;
+  --prosa: 'Newsreader', Georgia, 'Times New Roman', serif;
+
+  /* Ritmo */
+  --ancho: 76rem;
+  --lectura: 36rem;
+  --borde: clamp(1rem, 4vw, 2.75rem);
+  --radio: 14px;
+  --radio-chico: 8px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+  background: var(--noche);
+}
+
+body {
+  margin: 0;
+  background: var(--noche);
+  color: var(--hueso);
+  font-family: var(--prosa);
+  font-optical-sizing: auto;
+  font-size: clamp(1rem, 0.95rem + 0.25vw, 1.0625rem);
+  line-height: 1.65;
+}
+
+/* Todo lo que es dato o interfaz usa la maquina; la prosa usa el serif. */
+h1,
+h2,
+h3,
+th,
+label,
+button,
+.maquina {
+  font-family: var(--maquina);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+  margin: 0;
+}
+
+/* Las etiquetas de la interfaz van estrechas, como en un tablero. */
+.estrecha {
+  font-family: var(--maquina);
+  font-stretch: 84%;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+/* Las cifras grandes van anchas: pesan mas sin gritar en mayusculas. */
+.cifra {
+  font-family: var(--maquina);
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.cifra--ancha {
+  font-stretch: 118%;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+table,
+input,
+select,
+output {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+p {
+  margin: 0 0 0.9em;
+  max-width: var(--lectura);
+}
+p:last-child {
+  margin-bottom: 0;
+}
+
+a {
+  color: inherit;
+  text-underline-offset: 0.2em;
+  text-decoration-thickness: 1px;
+}
+a:hover {
+  text-decoration-thickness: 2px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ambar);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+.envoltura {
+  width: 100%;
+  max-width: var(--ancho);
+  margin-inline: auto;
+  padding-inline: var(--borde);
+}
+
+.solo-lectores {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* --- Seccion ----------------------------------------------------- */
+.seccion {
+  padding-block: clamp(2.5rem, 5.5vw, 3.75rem);
+}
+
+.seccion__titulo {
+  font-size: clamp(1.5rem, 1.2rem + 1.5vw, 2.1rem);
+  max-width: 24ch;
+  text-wrap: balance;
+}
+
+.seccion__entrada {
+  margin-top: 0.7rem;
+  color: var(--hueso-2);
+  max-width: var(--lectura);
+}
+
+/* --- Panel: la superficie de la terminal ------------------------- */
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--linea);
+  border-radius: var(--radio);
+}
+
+/* --- Botones ----------------------------------------------------- */
+.boton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-family: var(--maquina);
+  font-weight: 700;
+  font-size: 0.98rem;
+  padding: 0.72rem 1.3rem;
+  border: 1px solid var(--ambar);
+  border-radius: var(--radio-chico);
+  background: var(--ambar);
+  color: #17120a;
+  cursor: pointer;
+  text-decoration: none;
+  transition: filter 120ms ease, background 120ms ease, color 120ms ease;
+}
+.boton:hover {
+  filter: brightness(1.1);
+}
+
+.boton--hueco {
+  background: transparent;
+  color: var(--hueso);
+  border-color: var(--linea-fuerte);
+}
+.boton--hueco:hover {
+  background: var(--panel-alto);
+  filter: none;
+}
+
+/* --- Delta: cuanto y hacia donde -------------------------------- */
+.delta {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  font-family: var(--maquina);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.delta--sube {
+  color: var(--sube);
+}
+.delta--baja {
+  color: var(--baja);
+}
+.delta--plano {
+  color: var(--hueso-2);
+}
+.delta__flecha {
+  font-size: 0.82em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

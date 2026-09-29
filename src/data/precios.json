@@ -1,0 +1,83 @@
+{
+  "datosDeEjemplo": true,
+  "actualizado": "2026-09-22",
+  "moneda": "MXN",
+  "unidad": "kg",
+
+  "tipos": [
+    {
+      "id": "primera",
+      "nombre": "Primera",
+      "descripcion": "Nuez grande, limpia, sin mancha ni cáscara quebrada."
+    },
+    {
+      "id": "segunda",
+      "nombre": "Segunda",
+      "descripcion": "Nuez más chica o con mancha ligera. Buen grano."
+    },
+    {
+      "id": "quebrada",
+      "nombre": "Quebrada o rezaga",
+      "descripcion": "Cáscara rota, hueca o con daño. Se paga por grano."
+    }
+  ],
+
+  "recolectores": [
+    {
+      "id": "la-nogalera",
+      "nombre": "Bodega La Nogalera (EJEMPLO)",
+      "direccion": "Carretera a Jiménez km 2, Villa Coronado",
+      "telefono": "",
+      "horario": "Lunes a sábado, 8:00 a 18:00",
+      "lat": 26.7512,
+      "lon": -105.1655,
+      "fecha": "2026-09-22",
+      "notas": "Pesan con báscula certificada. Pagan en efectivo el mismo día.",
+      "precios": { "primera": 64, "segunda": 52, "quebrada": 28 }
+    },
+    {
+      "id": "centro-acopio-coronado",
+      "nombre": "Centro de Acopio Coronado (EJEMPLO)",
+      "direccion": "Calle Hidalgo s/n, centro",
+      "telefono": "",
+      "horario": "Lunes a viernes, 9:00 a 17:00",
+      "lat": 26.7441,
+      "lon": -105.1731,
+      "fecha": "2026-09-21",
+      "notas": "Descuentan por humedad si la nuez viene recién juntada.",
+      "precios": { "primera": 61, "segunda": 50, "quebrada": 26 }
+    },
+    {
+      "id": "don-ramon",
+      "nombre": "Compra Don Ramón (EJEMPLO)",
+      "direccion": "Ejido Santa Rosalía, a 6 km del centro",
+      "telefono": "",
+      "horario": "Todos los días, 7:00 a 20:00",
+      "lat": 26.7698,
+      "lon": -105.1402,
+      "fecha": "2026-09-20",
+      "notas": "Compra cantidades chicas, desde 10 kg.",
+      "precios": { "primera": 63, "segunda": 49, "quebrada": 30 }
+    },
+    {
+      "id": "nueces-del-conchos",
+      "nombre": "Nueces del Conchos (EJEMPLO)",
+      "direccion": "Salida sur, frente a la gasolinera",
+      "telefono": "",
+      "horario": "Lunes a sábado, 8:00 a 15:00",
+      "lat": 26.7305,
+      "lon": -105.182,
+      "fecha": "2026-09-19",
+      "notas": "Solo compran de 100 kg en adelante.",
+      "precios": { "primera": 66, "segunda": 53, "quebrada": null }
+    }
+  ],
+
+  "historial": [
+    { "fecha": "2026-08-25", "primera": 58, "segunda": 46, "quebrada": 24 },
+    { "fecha": "2026-09-01", "primera": 59, "segunda": 47, "quebrada": 25 },
+    { "fecha": "2026-09-08", "primera": 61, "segunda": 48, "quebrada": 26 },
+    { "fecha": "2026-09-15", "primera": 63, "segunda": 50, "quebrada": 27 },
+    { "fecha": "2026-09-22", "primera": 64, "segunda": 51, "quebrada": 28 }
+  ]
+}

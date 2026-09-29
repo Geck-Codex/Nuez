@@ -1,0 +1,204 @@
+---
+/**
+ * Barra fija con la cinta de precios: los tres grados de un vistazo,
+ * como el encabezado de una casa de bolsa. Tocar uno cambia toda la pagina.
+ */
+import { SITIO, pesos } from '../config';
+import { datos, mejorPorTipo, tendencia } from '../lib/datos';
+
+const gradoInicial = datos.tipos[0]!.id;
+
+const cintas = datos.tipos.map((t) => {
+  const mejor = mejorPorTipo(t.id);
+  const cambio = tendencia(t.id);
+  return {
+    id: t.id,
+    nombre: t.nombre,
+    precio: mejor?.precio ?? null,
+    diferencia: cambio?.diferencia ?? null,
+  };
+});
+---
+
+<header class="barra">
+  <div class="envoltura barra__interior">
+    <a class="marca" href="#arriba">
+      <span class="marca__nuez" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6">
+          <path d="M12 2.6c3.4 2 5.4 5.3 5.4 9.3 0 4.8-2.4 8.4-5.4 9.5-3-1.1-5.4-4.7-5.4-9.5 0-4 2-7.3 5.4-9.3Z" />
+          <path d="M12 3v18M8.4 7.5c1.6 1.4 2.3 3 2.3 5.2M15.6 7.5c-1.6 1.4-2.3 3-2.3 5.2" />
+        </svg>
+      </span>
+      <span class="marca__texto">
+        <span class="marca__nombre">Precio de la nuez</span>
+        <span class="marca__lugar estrecha">{SITIO.localidadCompleta}</span>
+      </span>
+    </a>
+
+    <div class="cinta" role="group" aria-label="Precio por grado de nuez">
+      {
+        cintas.map((c) => (
+          <button
+            type="button"
+            class:list={['cinta__chip', { 'cinta__chip--activo': c.id === gradoInicial }]}
+            data-grado={c.id}
+            aria-pressed={c.id === gradoInicial ? 'true' : 'false'}
+          >
+            <span class="cinta__nombre estrecha">{c.nombre}</span>
+            {c.precio !== null ? (
+              <span class="cinta__precio cifra">{pesos(c.precio)}</span>
+            ) : (
+              <span class="cinta__precio cinta__precio--nada">sin dato</span>
+            )}
+            {c.diferencia !== null && c.diferencia !== 0 && (
+              <span
+                class:list={[
+                  'delta',
+                  'cinta__delta',
+                  c.diferencia > 0 ? 'delta--sube' : 'delta--baja',
+                ]}
+              >
+                <span class="delta__flecha" aria-hidden="true">{c.diferencia > 0 ? '↑' : '↓'}</span>
+                <span>{c.diferencia > 0 ? '+' : '−'}{pesos(Math.abs(c.diferencia))}</span>
+              </span>
+            )}
+          </button>
+        ))
+      }
+    </div>
+  </div>
+</header>
+
+<script>
+  import { alCambiar, fijarGrado } from '../lib/vivo';
+
+  const chips = Array.from(document.querySelectorAll<HTMLButtonElement>('.cinta__chip'));
+
+  for (const chip of chips) {
+    chip.addEventListener('click', () => fijarGrado(chip.dataset.grado!));
+  }
+
+  alCambiar(({ grado }) => {
+    for (const chip of chips) {
+      const activo = chip.dataset.grado === grado;
+      chip.classList.toggle('cinta__chip--activo', activo);
+      chip.setAttribute('aria-pressed', String(activo));
+    }
+  });
+</script>
+
+<style>
+  .barra {
+    position: sticky;
+    top: 0;
+    z-index: 500;
+    background: color-mix(in srgb, var(--noche) 92%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--linea);
+  }
+
+  .barra__interior {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem 1.5rem;
+    padding-block: 0.6rem;
+  }
+
+  .marca {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    text-decoration: none;
+  }
+
+  .marca__nuez {
+    color: var(--ambar);
+    display: grid;
+    place-items: center;
+  }
+
+  .marca__texto {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.15;
+  }
+
+  .marca__nombre {
+    font-family: var(--maquina);
+    font-weight: 700;
+    font-size: 1rem;
+  }
+
+  .marca__lugar {
+    font-size: 0.78rem;
+    color: var(--hueso-2);
+  }
+
+  /* La cinta scrollea de lado en celular, sin romper la barra. */
+  .cinta {
+    display: flex;
+    gap: 0.4rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin-inline: calc(var(--borde) * -1);
+    padding-inline: var(--borde);
+  }
+  .cinta::-webkit-scrollbar {
+    display: none;
+  }
+
+  .cinta__chip {
+    flex: 0 0 auto;
+    display: grid;
+    grid-template-columns: auto auto;
+    grid-template-areas: 'nombre nombre' 'precio delta';
+    align-items: baseline;
+    gap: 0.05rem 0.4rem;
+    text-align: left;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radio-chico);
+    padding: 0.35rem 0.7rem;
+    color: var(--hueso-2);
+    cursor: pointer;
+  }
+  .cinta__chip:hover {
+    background: var(--panel);
+  }
+
+  .cinta__chip--activo {
+    background: var(--panel-alto);
+    border-color: var(--linea-fuerte);
+    color: var(--hueso);
+  }
+
+  .cinta__nombre {
+    grid-area: nombre;
+    font-size: 0.72rem;
+    color: var(--hueso-2);
+  }
+
+  .cinta__precio {
+    grid-area: precio;
+    font-size: 0.98rem;
+    font-weight: 700;
+    color: var(--hueso);
+  }
+  .cinta__precio--nada {
+    font-size: 0.8rem;
+    color: var(--hueso-2);
+  }
+
+  .cinta__delta {
+    grid-area: delta;
+    font-size: 0.74rem;
+  }
+
+  @media (max-width: 34rem) {
+    .marca__lugar {
+      display: none;
+    }
+  }
+</style>

@@ -1,0 +1,148 @@
+---
+/**
+ * De donde salen los precios, el aviso de que son de referencia, y el pie.
+ * Aqui la voz es de persona: prosa en serif, sin numeros grandes.
+ */
+import { SITIO, fechaLarga } from '../config';
+import { datos, ultimaVisita } from '../lib/datos';
+
+const visita = ultimaVisita();
+const anio = new Date().getFullYear();
+const wa = SITIO.contacto.whatsapp;
+const correo = SITIO.contacto.correo;
+---
+
+<section class="seccion como" id="como" aria-labelledby="como-titulo">
+  <div class="envoltura como__reja">
+    <div>
+      <h2 class="seccion__titulo" id="como-titulo">De dónde salen estos precios</h2>
+      <p class="seccion__entrada">
+        Nadie nos los manda. Damos la vuelta por {SITIO.localidad}, preguntamos en cada lugar
+        de acopio cuánto están pagando ese día y lo anotamos tal cual, con la fecha. La última
+        vuelta fue el {fechaLarga(visita)}.
+      </p>
+      <p class="como__aviso">
+        Son precios de referencia. Pueden cambiar de un día a otro y cada comprador ajusta
+        según la humedad, el tamaño y el volumen que le lleves. Antes de cargar la troca,
+        habla y confirma.
+      </p>
+      <p class="como__independencia">
+        Este sitio no compra ni vende nuez, no cobra comisión y no recibe pago de ningún
+        comprador por aparecer aquí.
+      </p>
+    </div>
+
+    <aside class="panel ayuda">
+      <h3 class="ayuda__titulo">¿Sabes un precio que no está aquí?</h3>
+      <p class="ayuda__texto">
+        Si preguntaste en otro lado, o si un precio ya cambió, mándalo y se actualiza en la
+        siguiente vuelta.
+      </p>
+      {
+        wa && (
+          <a class="boton" href={`https://wa.me/${wa}`} target="_blank" rel="noopener">
+            Mandar por WhatsApp
+          </a>
+        )
+      }
+      {
+        !wa && correo && (
+          <a class="boton" href={`mailto:${correo}`}>
+            Mandar por correo
+          </a>
+        )
+      }
+      {
+        !wa && !correo && (
+          <p class="ayuda__pendiente">
+            Falta poner el WhatsApp o el correo en <code>src/config.ts</code>.
+          </p>
+        )
+      }
+    </aside>
+  </div>
+</section>
+
+<footer class="pie">
+  <div class="envoltura pie__interior">
+    <p class="pie__linea">
+      Precio de la nuez en {SITIO.localidadCompleta}. Información pública y gratuita, {anio}.
+    </p>
+    <p class="pie__linea pie__linea--tenue estrecha">
+      Última actualización: {fechaLarga(datos.actualizado)} · Mapa de OpenStreetMap
+    </p>
+  </div>
+</footer>
+
+<style>
+  .como__reja {
+    display: grid;
+    gap: 2rem 3rem;
+    grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  @media (max-width: 52rem) {
+    .como__reja {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  .como__aviso {
+    margin-top: 1.1rem;
+  }
+
+  .como__independencia {
+    margin-top: 1.1rem;
+    padding-left: 1rem;
+    border-left: 2px solid var(--ambar);
+    color: var(--hueso-2);
+  }
+
+  .ayuda {
+    padding: 1.4rem;
+  }
+
+  .ayuda__titulo {
+    font-size: 1.1rem;
+  }
+
+  .ayuda__texto {
+    margin: 0.7rem 0 1.2rem;
+    font-size: 0.95rem;
+    color: var(--hueso-2);
+  }
+
+  .ayuda__pendiente {
+    margin: 0;
+    font-size: 0.88rem;
+    color: var(--hueso-2);
+  }
+
+  .ayuda__pendiente code {
+    background: var(--panel-alto);
+    border-radius: 4px;
+    padding: 0.1em 0.35em;
+    font-size: 0.9em;
+  }
+
+  .pie {
+    border-top: 1px solid var(--linea);
+    background: var(--panel);
+  }
+
+  .pie__interior {
+    padding-block: 1.8rem;
+  }
+
+  .pie__linea {
+    margin: 0;
+    font-size: 0.9rem;
+  }
+
+  .pie__linea--tenue {
+    margin-top: 0.35rem;
+    font-size: 0.76rem;
+    color: var(--hueso-2);
+  }
+</style>

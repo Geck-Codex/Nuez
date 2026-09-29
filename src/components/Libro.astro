@@ -1,0 +1,318 @@
+---
+/**
+ * El libro de compra: quien te da cuanto por los kilos que pusiste,
+ * del que mas paga al que menos. La barra de cada fila es lo que paga
+ * comparado con el mejor, para que se vea la diferencia sin leer numeros.
+ *
+ * El servidor lo pinta para el primer grado y 100 kg; el navegador lo
+ * vuelve a pintar cuando cambias de grado o de kilos.
+ */
+import { pesos, fechaLarga } from '../config';
+import { datos, ordenadosPorTipo } from '../lib/datos';
+
+const grado = datos.tipos[0]!;
+const KILOS = 100;
+const filas = ordenadosPorTipo(grado.id);
+const tope = filas[0]?.precio ?? 0;
+const piso = filas.at(-1)?.precio ?? 0;
+const sinPrecio = datos.recolectores.filter((r) => typeof r.precios[grado.id] !== 'number');
+
+/** Que tanto de la barra se llena: el mejor va lleno, el peor conserva un tramo. */
+const ancho = (precio: number) => {
+  if (tope === piso) return 100;
+  return Math.round(45 + ((precio - piso) / (tope - piso)) * 55);
+};
+---
+
+<section class="seccion libro" id="libro" aria-labelledby="libro-titulo">
+  <div class="envoltura">
+    <h2 class="seccion__titulo" id="libro-titulo">
+      Lo que te da cada quien por
+      <span data-vivo="libro-kilos">{KILOS}</span> kg de
+      <span data-vivo="libro-grado">{grado.nombre.toLowerCase()}</span>
+    </h2>
+    <p class="seccion__entrada">
+      Con el precio de la última vez que se preguntó ahí. Cambia los kilos arriba y esta
+      lista se mueve contigo.
+    </p>
+
+    <ol class="libro__lista" data-vivo="libro-lista">
+      {
+        filas.map(({ recolector, precio }, i) => (
+          <li class:list={['fila', { 'fila--mejor': i === 0 }]}>
+            <span class="fila__barra" style={`--llena:${ancho(precio)}%`} aria-hidden="true"></span>
+            <span class="fila__lugar cifra">{i + 1}</span>
+            <span class="fila__quien">
+              <span class="fila__nombre">{recolector.nombre}</span>
+              <span class="fila__donde">
+                {recolector.direccion} · preguntado el {fechaLarga(recolector.fecha)}
+              </span>
+              {i === 0 && <span class="fila__sello estrecha">Paga más</span>}
+            </span>
+            <span class="fila__cuenta">
+              <span class="fila__total cifra">{pesos(precio * KILOS)}</span>
+              <span class="fila__unitario estrecha">{pesos(precio)} / kg</span>
+              {i > 0 && (
+                <span class="fila__contra cifra">
+                  −{pesos((tope - precio) * KILOS)} contra el mejor
+                </span>
+              )}
+            </span>
+          </li>
+        ))
+      }
+    </ol>
+
+    <!-- Los dos parrafos van siempre en el HTML, ocultos si no aplican: el JS
+         los vuelve a llenar cuando cambias de grado. -->
+    <p class="libro__brecha" data-vivo="libro-brecha" hidden={filas.length < 2}>
+      Entre el que más paga y el que menos hay{' '}
+      <strong class="cifra">{pesos((tope - piso) * KILOS)}</strong> de diferencia por los mismos
+      kilos.
+    </p>
+
+    <p class="libro__faltantes" data-vivo="libro-faltantes" hidden={sinPrecio.length === 0}>
+      No compran {grado.nombre.toLowerCase()}: {sinPrecio.map((r) => r.nombre).join(', ')}.
+    </p>
+  </div>
+</section>
+
+<script>
+  import { alCambiar, carga, escapar, ordenados, pesos } from '../lib/vivo';
+
+  const lista = document.querySelector<HTMLElement>('[data-vivo="libro-lista"]');
+
+  if (carga && lista) {
+    const brecha = document.querySelector<HTMLElement>('[data-vivo="libro-brecha"]');
+    const faltantes = document.querySelector<HTMLElement>('[data-vivo="libro-faltantes"]');
+    const rotuloKilos = document.querySelector<HTMLElement>('[data-vivo="libro-kilos"]')!;
+    const rotuloGrado = document.querySelector<HTMLElement>('[data-vivo="libro-grado"]')!;
+
+    const fechaLarga = (iso: string) => {
+      const [a, m, d] = iso.split('-').map(Number);
+      return new Intl.DateTimeFormat('es-MX', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      }).format(new Date(a!, m! - 1, d!));
+    };
+
+    function pintar(grado: string, kilos: number) {
+      const filas = ordenados(grado);
+      const nombreGrado = (carga!.tipos.find((t) => t.id === grado)?.nombre ?? 'nuez').toLowerCase();
+      rotuloKilos.textContent = String(kilos);
+      rotuloGrado.textContent = nombreGrado;
+
+      if (filas.length === 0) {
+        lista!.innerHTML = `<li class="libro__vacio">Nadie tiene precio de ${escapar(
+          nombreGrado,
+        )} capturado todavía.</li>`;
+        if (brecha) brecha.hidden = true;
+      } else {
+        const tope = filas[0]!.precio;
+        const piso = filas.at(-1)!.precio;
+        const ancho = (p: number) =>
+          tope === piso ? 100 : Math.round(45 + ((p - piso) / (tope - piso)) * 55);
+
+        lista!.innerHTML = filas
+          .map(({ recolector: r, precio }, i) => {
+            const total = kilos > 0 ? pesos(precio * kilos) : '—';
+            const contra =
+              i > 0 && kilos > 0
+                ? `<span class="fila__contra cifra">−${pesos((tope - precio) * kilos)} contra el mejor</span>`
+                : '';
+            return `
+              <li class="fila${i === 0 ? ' fila--mejor' : ''}">
+                <span class="fila__barra" style="--llena:${ancho(precio)}%" aria-hidden="true"></span>
+                <span class="fila__lugar cifra">${i + 1}</span>
+                <span class="fila__quien">
+                  <span class="fila__nombre">${escapar(r.nombre)}</span>
+                  <span class="fila__donde">${escapar(r.direccion)} · preguntado el ${fechaLarga(
+                    r.fecha,
+                  )}</span>
+                  ${i === 0 ? '<span class="fila__sello estrecha">Paga más</span>' : ''}
+                </span>
+                <span class="fila__cuenta">
+                  <span class="fila__total cifra">${total}</span>
+                  <span class="fila__unitario estrecha">${pesos(precio)} / kg</span>
+                  ${contra}
+                </span>
+              </li>`;
+          })
+          .join('');
+
+        if (brecha) {
+          brecha.hidden = filas.length < 2 || kilos === 0;
+          if (!brecha.hidden) {
+            brecha.innerHTML = `Entre el que más paga y el que menos hay <strong class="cifra">${pesos(
+              (tope - piso) * kilos,
+            )}</strong> de diferencia por los mismos kilos.`;
+          }
+        }
+      }
+
+      if (faltantes) {
+        const sin = carga!.recolectores.filter((r) => typeof r.precios[grado] !== 'number');
+        faltantes.hidden = sin.length === 0;
+        faltantes.textContent = `No compran ${nombreGrado}: ${sin.map((r) => r.nombre).join(', ')}.`;
+      }
+    }
+
+    alCambiar(({ grado, kilos }) => pintar(grado, kilos));
+  }
+</script>
+
+<style>
+  .libro__brecha {
+    margin-top: 1.4rem;
+  }
+
+  .libro__faltantes {
+    margin-top: 0.6rem;
+    font-size: 0.9rem;
+    color: var(--hueso-2);
+  }
+</style>
+
+<style is:global>
+  /* Las filas las reescribe el JS cuando cambian los kilos, asi que estos
+     estilos tienen que ser globales: el scope de Astro no alcanza HTML nuevo. */
+  .libro__lista {
+    list-style: none;
+    margin: 1.8rem 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .fila {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1.6rem minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.4rem 0.9rem;
+    padding: 0.85rem 1rem;
+    background: var(--panel);
+    border: 1px solid var(--linea);
+    border-radius: var(--radio-chico);
+    overflow: hidden;
+  }
+
+  /* La barra es cuanto paga comparado con el mejor. Vive detras del texto. */
+  .fila__barra {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: var(--llena, 0%);
+    background: linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--hueso) 9%, transparent),
+      transparent
+    );
+    pointer-events: none;
+  }
+
+  .fila > :not(.fila__barra) {
+    position: relative;
+  }
+
+  .fila--mejor {
+    border-color: color-mix(in srgb, var(--ambar) 55%, transparent);
+    background: var(--panel-alto);
+  }
+
+  .fila--mejor .fila__barra {
+    background: linear-gradient(90deg, var(--ambar-lavado), transparent);
+  }
+
+  .fila__lugar {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--hueso-2);
+    text-align: right;
+  }
+
+  .fila--mejor .fila__lugar {
+    color: var(--ambar);
+  }
+
+  .fila__quien {
+    display: flex;
+    flex-direction: column;
+    gap: 0.12rem;
+    min-width: 0;
+  }
+
+  .fila__nombre {
+    font-family: var(--maquina);
+    font-weight: 700;
+    font-size: 1.05rem;
+    line-height: 1.2;
+  }
+
+  .fila__donde {
+    font-size: 0.84rem;
+    color: var(--hueso-2);
+    line-height: 1.4;
+  }
+
+  .fila__sello {
+    align-self: flex-start;
+    margin-top: 0.3rem;
+    font-size: 0.68rem;
+    color: #17120a;
+    background: var(--ambar);
+    border-radius: 999px;
+    padding: 0.08rem 0.5rem;
+  }
+
+  .fila__cuenta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    text-align: right;
+  }
+
+  .fila__total {
+    font-weight: 700;
+    font-size: clamp(1.3rem, 1.05rem + 1vw, 1.75rem);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+  }
+
+  .fila--mejor .fila__total {
+    color: var(--ambar);
+  }
+
+  .fila__unitario {
+    font-size: 0.8rem;
+    color: var(--hueso-2);
+    margin-top: 0.25rem;
+  }
+
+  .fila__contra {
+    font-size: 0.78rem;
+    color: var(--baja);
+    margin-top: 0.15rem;
+  }
+
+  .libro__vacio {
+    padding: 1.2rem;
+    background: var(--panel);
+    border: 1px solid var(--linea);
+    border-radius: var(--radio-chico);
+    color: var(--hueso-2);
+  }
+
+  @media (max-width: 34rem) {
+    .fila {
+      grid-template-columns: 1.4rem minmax(0, 1fr);
+    }
+    .fila__cuenta {
+      grid-column: 2;
+      align-items: flex-start;
+      text-align: left;
+      margin-top: 0.4rem;
+    }
+  }
+</style>
